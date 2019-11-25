@@ -1,0 +1,2 @@
+# SimpleStore
+Umbraco simple store
