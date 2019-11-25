@@ -1,0 +1,95 @@
+@using SimplestStore.Controllers
+@using SimplestStore.Models
+@inherits UmbracoTemplatePage
+@{
+    var homePage = Model.Content.AncestorOrSelf(1);
+    var currentBasket = new basketItem();
+    if (homePage != null && homePage.Descendants("Basket").Any())
+        {
+        var basketPage = homePage.Descendants("Basket").First();
+        if (basketPage != null && Model.Content.HasProperty("productPrice") && Model.Content.HasValue("productPrice"))
+            {
+            var pagePrice = Model.Content.GetPropertyValue("productPrice");
+            var productPrice = Convert.ToDecimal(pagePrice);
+            var mediaUrl = "/images/ProductPlaceholder.png";
+            if (Model.Content.HasProperty("productImage") && Model.Content.HasValue("productImage"))
+                {
+                var mediaItem = Umbraco.TypedMedia(Model.Content.GetPropertyValue("productImage"));
+                mediaUrl = mediaItem.Url();
+                }
+
+            <h2>
+                Add @Model.Content.Name to your basket
+            </h2>
+
+            if (TempData["failure"] != null)
+                {
+                <div class="row">
+                    <div role="alert" class="alert alert-danger fade in col-sm-12">
+                        <p>
+                            <strong>
+                                @TempData["failure"]
+                            </strong>
+                        </p>
+                    </div>
+                </div>
+                }
+            else if (TempData["success"] != null)
+                {
+                <div class="row">
+                    <div role="alert" class="alert alert-success fade in col-sm-12">
+                        <p>
+                            <strong>
+                                @TempData["success"]
+                            </strong>
+                            @if (basketPage != null)
+                                {
+                                <br />
+                                <text>Now go to the </text>
+                                <a href="@basketPage.Url" title="@basketPage.Name"> Basket Page </a>
+                                <text> and pay for your products.!!!</text>
+                                }
+                        </p>
+                    </div>
+                </div>
+                }
+
+                <div class="row">
+                    @using (Html.BeginUmbracoForm<BasketSurfaceController>("ProductPageAddToBasket", null, new { @class = "form", role = "form" }))
+                        {
+                        var priceMessage = "";
+                        if (Model.Content.HasProperty("priceExtras") && Model.Content.HasValue("priceExtras"))
+                            {
+                            var priceExtrasIds = Model.Content.GetPropertyValue("priceExtras").ToString();
+                            priceMessage = currentBasket.GetCart().DiscountMessage(Model.Content, priceExtrasIds, null, out productPrice);
+                            }
+                        <input type="hidden" id="productPrice" name="productPrice" value="@productPrice" />
+                        if (!string.IsNullOrEmpty(priceMessage))
+                            {
+                            <div class="form-group">
+                                <div role="alert" class="alert alert-warning">
+                                    <strong>
+                                        @priceMessage
+                                    </strong>
+                                </div>
+                            </div>
+                            }
+                            <div class="form-group col-sm-12 col-md-3">
+                                <div class="thumbnail">
+                                    <img src="@mediaUrl" alt="@Model.Content.Name image" />
+                                </div>
+                            </div>
+                            <div class="form-group col-sm-12 col-md-3 col-md-offset-2">
+                                <div class="input-group">
+                                    <div class="input-group-addon">Price</div>
+                                    <input class="form-control" type="text" placeholder="£00.00" disabled value="@productPrice.ToString("c")" />
+                                </div>
+                            </div>
+                            <div class="form-group text-right col-sm-12 col-md-4">
+                                <button id="addToBasket" type="submit" class="btn btn-primary">Add to Basket</button>
+                            </div>
+                        }
+                </div>
+            }
+        }
+}

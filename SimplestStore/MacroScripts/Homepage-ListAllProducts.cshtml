@@ -1,0 +1,200 @@
+@inherits umbraco.MacroEngines.DynamicNodeContext
+@using umbraco.MacroEngines;
+@using SimplestStore.App_Code;
+@using SimplestStore.Models;
+@using Umbraco.Web;
+@using umbraco.BusinessLogic;
+@using Umbraco.Core.Logging;
+@{
+    var umbracoHelper = new UmbracoHelper(UmbracoContext.Current);
+    var homePage = Model.AncestorOrSelf(1);
+    var hasBasketPage = homePage.Descendants("Basket").Any();
+    var checkoutSuccess = false;
+
+    //START - Logic to handle the submitof the add to basket forms
+    var errorMessage = "";
+    var successMessage = "";
+    var showErrorMessage = false;
+    var showSuccessMessage = false;
+    var submitForm = !String.IsNullOrEmpty(Request.Form.ToString());
+    if (submitForm)
+        {
+        if (Request["addToBasket"] == "submit")
+            {
+            try
+                {
+                var submittedProductId = "";
+                foreach (string formValue in Request.Form)
+                    {
+                    if (formValue == "productPageId")
+                        {
+                        submittedProductId = Request.Form[formValue];
+                        }
+                    }
+
+                if (!string.IsNullOrEmpty(submittedProductId))
+                    {
+                    var addedToCart = false;
+                    var currentBasket = new basketItem();
+                    var productPage = umbracoHelper.TypedContent(submittedProductId);
+                    if (productPage != null && productPage.Id > 0)
+                        {
+                        var productPrice = productPage.GetProperty("productPrice").Value.ToString();
+                        if (!string.IsNullOrEmpty(productPrice))
+                            {
+                            var productPriceValue = Convert.ToDecimal(productPrice);
+                            addedToCart = currentBasket.GetCart().AddProduct(productPage, 1, productPriceValue);
+                            }
+                        else
+                            {
+                            addedToCart = currentBasket.GetCart().AddProduct(productPage, 1, 1);
+                            }
+
+                        // create some messages and flags to use to show if the product has been added successfully or not
+                        if (addedToCart)
+                            {
+                            showSuccessMessage = true;
+                            successMessage = "You have successfully added your product to the basket...";
+                            }
+                        else
+                            {
+                            errorMessage = "Opps, There was an error processing your product in the basket.";
+                            showErrorMessage = true;
+                            }
+                        }
+                    else
+                        {
+                        errorMessage = "Opps, There was an error getting your product to add to the basket.";
+                        showErrorMessage = true;
+                        }
+                    }
+                else
+                    {
+                    errorMessage = "Opps, There was an error with the submitted product";
+                    showErrorMessage = true;
+                    }
+
+                }
+            catch (Exception ex)
+                {
+                var errorMailBody = ex.Message + "\r\n \r\n" + ex.StackTrace + "\r\n \r\n" + ex.InnerException;
+                LogHelper.Error(GetType(), "Error adding product to the basket from home page", ex);
+                Log.Add(LogTypes.Error, 999, "Error adding product to the basket from home page - \r\n \r\n" + errorMailBody);
+
+                errorMessage = "Opps, There was an error processing your basket";
+                showErrorMessage = true;
+                }
+            }
+        }
+    //END - Logic to handle the submit of the add to basket forms
+
+    if (!String.IsNullOrEmpty(HttpContext.Current.Request.QueryString["checkout"]))
+        {
+        var redirectSuccessMessage = HttpContext.Current.Request.QueryString["checkout"];
+        if (!string.IsNullOrEmpty(redirectSuccessMessage))
+            {
+            checkoutSuccess = true;
+            }
+        }
+    
+    if (homePage != null && homePage.Children.Any() && hasBasketPage)
+        {
+        var basketPage = homePage.Descendants("Basket").First();
+        var productList = homePage.Descendants("Product").Where("Visible").ToList();
+        <h2>
+            All products
+        </h2>
+
+        // if we have just added a product or come from the checkout page, then display the results here
+        if (showSuccessMessage)
+            {
+            <div class="row">
+                <div role="alert" class="alert alert-success fade in col-sm-12">
+                    <strong>
+                        @Html.Raw(successMessage)
+                    </strong>
+                    @if (basketPage != null)
+                        {
+                        <p>
+                            Go to the <a href="@basketPage.Url" title="@basketPage.Name">Basket Page </a> and view your items basket.
+                        </p>
+                        }
+                </div>
+            </div>
+            }
+        else if (showErrorMessage)
+            {
+            <div class="row">
+                <div role="alert" class="alert alert-danger fade in col-sm-12">
+                    <strong>
+                        @Html.Raw(errorMessage)
+                    </strong>
+                </div>
+            </div>
+            }
+        else if (checkoutSuccess)
+            {
+            <div class="row">
+                <div role="alert" class="alert alert-success fade in col-sm-12">
+                    <strong>
+                        You have successfully ordered and paid for your products, we will send you an email once your order is on the way....
+                    </strong>
+                </div>
+            </div>
+            }
+
+        // list all available products
+        foreach (var productRow in productList.InGroupsOf(4))
+            {
+            <div class="row">
+                @foreach (var productNode in productRow)
+                    {
+                    var mediaUrl = "/images/ProductPlaceholder.png";
+                    if (!string.IsNullOrEmpty(productNode.productImage.ToString()))
+                        {
+                        var mediaItem = umbracoHelper.TypedMedia(productNode.productImage.ToString());
+                        mediaUrl = mediaItem.Url;
+                        }
+                    var productHeading = productNode.Name;
+                    <div class="col-sm-6 col-md-3">
+                        <div class="thumbnail">
+                            <a href="@productNode.Url" title="View @productHeading page">
+                                <img src="@mediaUrl" alt="@productNode.Name image" class="img-thumbnail" />
+                            </a>
+                            <div class="caption">
+                                <a href="@productNode.Url" title="View @productHeading page">
+                                    <h3>@productHeading</h3>
+                                </a>
+                                @if (!string.IsNullOrEmpty(productNode.pageText.ToString()))
+                                    {
+                                    var pageText = productNode.pageText.ToString();
+                                    <p>
+                                        @siteHelpers.LimitWordsInText(pageText, 10) ...
+                                    </p>
+                                    }
+                                @if (!string.IsNullOrEmpty(productNode.productPrice.ToString()))
+                                    {
+                                    var productPrice = Convert.ToDecimal(productNode.productPrice.ToString());
+                                    <form class="form" role="form" method="post" id="@productNode.Name" name="@productNode.Name">
+                                        <input type="hidden" id="productPageId" name="productPageId" value="@productNode.Id" />
+                                        <div class="form-group">
+                                            <div class="input-group">
+                                                <div class="input-group-addon">Price</div>
+                                                <input class="form-control" type="text" placeholder="£00.00" disabled value="@productPrice.ToString("c")" />
+                                            </div>
+                                        </div>
+                                        <div class="form-group text-right">
+                                            <button name="addToBasket" id="addToBasket" type="submit" class="btn btn-primary" value="submit">Add to Basket</button>
+                                        </div>
+                                    </form>
+                                    }
+                            </div>
+                        </div>
+                    </div>
+                    }
+            </div>
+            <hr />
+            }
+        }
+}
+

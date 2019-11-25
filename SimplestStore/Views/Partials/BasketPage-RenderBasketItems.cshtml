@@ -1,0 +1,404 @@
+@inherits Umbraco.Web.Mvc.UmbracoTemplatePage
+@using SimplestStore.Controllers;
+@using SimplestStore.Models;
+@{
+    var homePage = Model.Content.AncestorOrSelf(1);
+    var hasCheckoutPage = homePage.Descendants("Checkout").Any();
+    Cart basketCart = (Cart)Session["Cart"];
+
+    if (basketCart != null)
+        {
+
+        // show messages of basket updates
+        if (TempData["success"] != null)
+            {
+            <div role="alert" class="alert alert-success fade in col-sm-12">
+                <p>
+                    <strong>
+                        @TempData["success"]
+                    </strong>
+                </p>
+            </div>
+            }
+        else if (TempData["failure"] != null)
+            {
+            <div role="alert" class="alert alert-danger fade in col-sm-12">
+                <p>
+                    <strong>
+                        @TempData["failure"]
+                    </strong>
+                </p>
+            </div>
+            }
+
+            <div class="row">
+                <h3 class="col-sm-12">
+                    Shopping Basket
+                </h3>
+            </div>
+            <hr />
+            <div class="row">
+                <p class="text-left col-md-3 visible-md visible-lg">
+                    <strong>
+                        Image
+                    </strong>
+                </p>
+                <div class="col-md-9">
+                    <div class="row">
+                        <p class="text-left col-xs-3 col-md-6">
+                            <strong>
+                                Name (Quantity)
+                            </strong>
+                        </p>
+                        <p class="text-right col-xs-3 col-md-2">
+                            <strong>
+                                Price
+                            </strong>
+                        </p>
+                        <p class="text-right col-xs-3 col-md-2">
+                            <strong>
+                                Subtotal
+                            </strong>
+                        </p>
+                        <p class="text-right col-xs-3 col-md-2">
+                            <strong>
+                                Remove
+                            </strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <hr />
+        foreach (var basketItem in basketCart.Lines)
+            {
+            if (basketItem.IsMainProduct)
+                {
+                var currentMainProduct = basketItem.ProductPage;
+                var productImage = "/images/ProductPlaceholder.png";
+                if (basketItem.ProductPage.HasProperty("productImage") && basketItem.ProductPage.GetProperty("productImage").HasValue)
+                    {
+                    var mediaItem = Umbraco.TypedMedia(basketItem.ProductPage.GetProperty("productImage").Value);
+                    productImage = mediaItem.Url();
+                    }
+                var basketItemName = basketItem.ProductPage.Name;
+                var basketItemPrice = basketItem.Price;
+                var itemPrice = Convert.ToDecimal(basketItemPrice);
+                var basketItemQuantity = basketItem.Quantity;
+                var priceMessage = "";
+                if (basketItem.ProductPage.HasProperty("priceExtras") && basketItem.ProductPage.HasValue("priceExtras"))
+                    {
+                    var priceExtrasIds = basketItem.ProductPage.GetPropertyValue("priceExtras").ToString();
+                    priceMessage = basketItem.GetCart().DiscountMessage(basketItem.ProductPage, priceExtrasIds, null, out itemPrice);
+                    }
+
+                <div class="row">
+                    <p class="text-left col-md-3 visible-md visible-lg">
+                        <a href="@basketItem.ProductPage.Url" title="View @basketItemName page">
+                            <img src="@productImage" alt="@basketItemName image" class="basketImage" />
+                        </a>
+                    </p>
+                    <div class="productDetails col-md-9">
+                        <div class="mainProduct row">
+                            <div class="text-left col-xs-3 col-md-6">
+                                <strong>
+                                    <a href="@basketItem.ProductPage.Url" title="View @basketItemName page">
+                                        @basketItemName
+                                    </a>
+                                </strong>
+                                @if (!string.IsNullOrEmpty(basketItem.Description))
+                                    {
+                                    <br />
+                                    <span>
+                                        @basketItem.Description
+                                    </span>
+                                    }
+                                @if (!string.IsNullOrEmpty(priceMessage))
+                                    {
+                                    <br />
+                                    <p role="alert" class="basketAlert alert alert-warning">
+                                        <strong>
+                                            @priceMessage
+                                        </strong>
+                                    </p>
+                                    }
+                            </div>
+
+                            <p class="text-right col-xs-3 col-md-2">
+                                @itemPrice.ToString("c")
+                            </p>
+                            <p class="text-right col-xs-3 col-md-2">
+                                @((basketItemQuantity * itemPrice).ToString("c"))
+                            </p>
+                            @using (Html.BeginUmbracoForm<BasketSurfaceController>("RemoveFromBasket", null, new { @class = "form-inline text-right col-xs-3 col-md-2", role = "form" }))
+                                {
+                                <input type="hidden" name="productPageId" id="productPageId" value="@basketItem.ProductPage.Id" />
+                                <input class="btn btn-sm btn-warning" type="submit" value="X" />
+                                }
+                        </div>
+                        @foreach (var basketExtraItem in basketCart.Lines)
+                            {
+                            if (!basketExtraItem.IsMainProduct)
+                                {
+                                if (basketExtraItem.ExtraMainProductPage.Id == currentMainProduct.Id)
+                                    {
+                                    var isOptional = basketExtraItem.ProductPage.GetProperty("isOptionalExtra").Value.ToString();
+                                    var extraPrice = basketExtraItem.Price;
+                                    var basketExtraPriceMessage = "";
+                                    if (basketExtraItem.ProductPage.HasProperty("priceExtras") && basketExtraItem.ProductPage.HasValue("priceExtras"))
+                                        {
+                                        var priceExtrasIds = basketExtraItem.ProductPage.GetPropertyValue("priceExtras").ToString();
+                                        basketExtraPriceMessage = basketItem.GetCart().DiscountMessage(basketExtraItem.ProductPage, priceExtrasIds, basketExtraItem.ExtraMainProductPage, out extraPrice);
+                                        }
+                                    <div class="extraProduct row">
+                                        <hr />
+                                        <div class="text-left col-xs-6 col-md-6">
+                                            <strong>
+                                                @basketExtraItem.ProductPage.Name
+                                            </strong>
+                                            @if (!string.IsNullOrEmpty(basketExtraItem.Description))
+                                                {
+                                                <br />
+                                                <span>
+                                                    @basketExtraItem.Description
+                                                </span>
+                                                }
+                                            @*@if (!string.IsNullOrEmpty(basketExtraPriceMessage))
+                                            {
+                                            <br />
+                                            <p role="alert" class="basketAlert alert alert-warning">
+                                                <strong>
+                                                    @basketExtraPriceMessage
+                                                </strong>
+                                            </p>
+                                            }*@
+                                        </div>
+                                        <p class="text-right col-xs-6 col-md-4">
+                                            @extraPrice.ToString("c")
+                                        </p>
+                                        @if (isOptional == "True")
+                                            {
+                                            using (Html.BeginUmbracoForm<BasketSurfaceController>("RemoveFromBasket", null, new { @class = "form-inline text-right col-md-2", role = "form" }))
+                                                {
+                                                <input type="hidden" name="productPageId" id="productPageId" value="@basketExtraItem.ProductPage.Id" />
+                                                <input class="btn btn-sm btn-warning" type="submit" value="X" />
+                                                }
+                                            }
+                                        else
+                                            {
+                                            <p class="col-md-2">
+                                            </p>
+                                            }
+                                    </div>
+                                    }
+                                }
+                            }
+                        <div class="extraProduct row">
+                            <hr />
+                            @if (basketItem.ProductPage.HasProperty("productExtras") && basketItem.ProductPage.GetProperty("productExtras").HasValue)
+                                {
+                                var orderLineExtras = basketItem.ProductPage.GetPropertyValue("productExtras").ToString();
+                                if (!string.IsNullOrEmpty(orderLineExtras))
+                                    {
+                                    if (orderLineExtras.Contains(","))
+                                        {
+                                        var extras = orderLineExtras.Split(',');
+                                        foreach (var extraId in extras)
+                                            {
+                                            var extraPageId = Convert.ToInt32(extraId);
+                                            IPublishedContent priceExtraPage = Umbraco.TypedContent(extraPageId);
+                                            decimal productExtraPrice = 0;
+                                            if (priceExtraPage != null && priceExtraPage.GetProperty("isOptionalExtra").HasValue)
+                                                {
+                                                var isOptional = priceExtraPage.GetProperty("isOptionalExtra").Value.ToString();
+                                                if (isOptional == "True")
+                                                    {
+                                                    //check if the extra is already in the basket and set a flag to not show it
+                                                    var extraInCart = false;
+                                                    foreach (var checkedCartLine in basketCart.Lines)
+                                                        {
+                                                        if (checkedCartLine.ProductPage.Id == priceExtraPage.Id && checkedCartLine.ExtraMainProductPage.Id == basketItem.ProductPage.Id)
+                                                            {
+                                                            extraInCart = true;
+                                                            }
+                                                        }
+
+                                                    // if the extra is not alread in the basket then show it as an option to add it
+                                                    if (!extraInCart)
+                                                        {
+                                                        var productExtraPriceMessage = "";
+                                                        if (priceExtraPage.GetProperty("price").HasValue)
+                                                            {
+                                                            productExtraPrice = Convert.ToDecimal(priceExtraPage.GetProperty("price").Value.ToString());
+                                                            if (priceExtraPage.HasProperty("priceExtras") && priceExtraPage.HasValue("priceExtras"))
+                                                                {
+                                                                var priceExtrasIds = priceExtraPage.GetPropertyValue("priceExtras").ToString();
+                                                                productExtraPriceMessage = basketItem.GetCart().DiscountMessage(priceExtraPage, priceExtrasIds, basketItem.ProductPage, out productExtraPrice);
+                                                                }
+                                                            }
+                                                        else if (priceExtraPage.GetProperty("pricePercentage").HasValue)
+                                                            {
+                                                            var extraDiscount = Convert.ToDecimal(priceExtraPage.GetProperty("pricePercentage").Value.ToString());
+                                                            var currentTotal = basketCart.ComputeTotalValue();
+                                                            productExtraPrice = currentTotal * (extraDiscount / 100);
+                                                            if (priceExtraPage.HasProperty("priceExtras") && priceExtraPage.HasValue("priceExtras"))
+                                                                {
+                                                                var priceExtrasIds = priceExtraPage.GetPropertyValue("priceExtras").ToString();
+                                                                productExtraPriceMessage = basketItem.GetCart().DiscountMessage(priceExtraPage, priceExtrasIds, basketItem.ProductPage, out productExtraPrice);
+                                                                }
+                                                            }
+                                                        <div class="text-left col-xs-6 col-md-6">
+                                                            @priceExtraPage.Name (@productExtraPrice.ToString("c"))
+                                                            @if (!string.IsNullOrEmpty(productExtraPriceMessage))
+                                                                {
+                                                                <br />
+                                                                <p role="alert" class="basketAlert alert alert-warning">
+                                                                    <strong>
+                                                                        @productExtraPriceMessage
+                                                                    </strong>
+                                                                </p>
+                                                                }
+                                                        </div>
+
+                                                        using (Html.BeginUmbracoForm<BasketSurfaceController>("ExtraProductAddToBasket", null, new { @class = "form-inline text-right col-xs-6 col-md-6", role = "form" }))
+                                                            {
+                                                            <input type="hidden" name="mainProductPageId" id="mainProductPageId" value="@basketItem.ProductPage.Id" />
+                                                            <input type="hidden" name="extraProductPageId" id="extraProductPageId" value="@priceExtraPage.Id" />
+                                                            <input class="btn btn-sm btn-warning" type="submit" value="Add" />
+                                                            }
+
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                    else
+                                        {
+                                        var extraPageId = Convert.ToInt32(orderLineExtras);
+                                        IPublishedContent priceExtraPage = Umbraco.TypedContent(extraPageId);
+                                        decimal productExtraPrice = 0;
+                                        if (priceExtraPage != null && priceExtraPage.GetProperty("isOptionalExtra").HasValue)
+                                            {
+                                            var isOptional = priceExtraPage.GetProperty("isOptionalExtra").Value.ToString();
+                                            if (isOptional == "True")
+                                                {
+                                                //check if the extra is already in the basket and set a flag to not show it
+                                                var extraInCart = false;
+                                                foreach (var checkedCartLine in basketCart.Lines)
+                                                    {
+                                                    if (checkedCartLine.ProductPage.Id == priceExtraPage.Id && checkedCartLine.ExtraMainProductPage.Id == basketItem.ProductPage.Id)
+                                                        {
+                                                        extraInCart = true;
+                                                        }
+                                                    }
+
+                                                // if the extra is not alread in the basket then show it as an option to add it
+                                                if (!extraInCart)
+                                                    {
+                                                    var productExtraPriceMessage = "";
+                                                    if (priceExtraPage.GetProperty("price").HasValue)
+                                                        {
+                                                        productExtraPrice = Convert.ToDecimal(priceExtraPage.GetProperty("price").Value.ToString());
+                                                        if (priceExtraPage.HasProperty("priceExtras") && priceExtraPage.HasValue("priceExtras"))
+                                                            {
+                                                            var priceExtrasIds = priceExtraPage.GetPropertyValue("priceExtras").ToString();
+                                                            productExtraPriceMessage = basketItem.GetCart().DiscountMessage(priceExtraPage, priceExtrasIds, basketItem.ProductPage, out productExtraPrice);
+                                                            }
+                                                        }
+                                                    else if (priceExtraPage.GetProperty("pricePercentage").HasValue)
+                                                        {
+                                                        var extraDiscount = Convert.ToDecimal(priceExtraPage.GetProperty("pricePercentage").Value.ToString());
+                                                        var currentTotal = basketCart.ComputeTotalValue();
+                                                        productExtraPrice = currentTotal * (extraDiscount / 100);
+                                                        if (priceExtraPage.HasProperty("priceExtras") && priceExtraPage.HasValue("priceExtras"))
+                                                            {
+                                                            var priceExtrasIds = priceExtraPage.GetPropertyValue("priceExtras").ToString();
+                                                            productExtraPriceMessage = basketItem.GetCart().DiscountMessage(priceExtraPage, priceExtrasIds, basketItem.ProductPage, out productExtraPrice);
+                                                            }
+                                                        }
+                                                    <div class="text-left col-xs-6 col-md-6">
+                                                        @priceExtraPage.Name ( @productExtraPrice.ToString("c") )
+                                                        @if (!string.IsNullOrEmpty(productExtraPriceMessage))
+                                                            {
+                                                            <br />
+                                                            <p role="alert" class="basketAlert alert alert-warning">
+                                                                <strong>
+                                                                    @productExtraPriceMessage
+                                                                </strong>
+                                                            </p>
+                                                            }
+                                                    </div>
+
+                                                    using (Html.BeginUmbracoForm<BasketSurfaceController>("ExtraProductAddToBasket", null, new { @class = "form-inline text-right col-xs-6 col-md-6", role = "form" }))
+                                                        {
+                                                        <input type="hidden" name="mainProductPageId" id="mainProductPageId" value="@basketItem.ProductPage.Id" />
+                                                        <input type="hidden" name="extraProductPageId" id="extraProductPageId" value="@priceExtraPage.Id" />
+                                                        <input class="btn btn-sm btn-warning" type="submit" value="Add" />
+                                                        }
+
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                        </div>
+                    </div>
+                </div>
+
+                <hr />
+                }
+            }
+
+            <div class="row ">
+                <p class="col-md-3"></p>
+                <div class="col-md-9">
+                    <div class="row">
+                        <p class="text-right col-md-6">
+                            <strong>
+                                Current Basket Total:
+                            </strong>
+                        </p>
+                        <p class="text-right col-md-4">
+                            <strong>
+                                @basketCart.ComputeTotalValue().ToString("c")
+                            </strong>
+                        </p>
+                        @using (Html.BeginUmbracoForm<BasketSurfaceController>("EmptyBasket", null, new { @class = "form-inline text-right col-md-2", role = "form" }))
+                            {
+                            <input class="btn btn-sm btn-warning" type="submit" value="Empty Basket" />
+                            }
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="row">
+                <div class="col-sm-6">
+                    <a class="btn btn-primary pull-left" href="@homePage.Url" title="@homePage.Name">Continue Shopping</a>
+                </div>
+                @if (hasCheckoutPage)
+                    {
+                    var checkoutPage = homePage.Descendants("Checkout").First();
+                    <div class="col-sm-12 col-md-6">
+                        <a class="btn btn-primary pull-right" href="@checkoutPage.Url" title="@checkoutPage.Name">Checkout</a>
+                    </div>
+                    }
+            </div>
+        }
+    else
+        {
+        <div class="row">
+            <div role="alert" class="alert alert-success fade in col-sm-12">
+                <strong>
+                    Your Basket is currently empty...
+                </strong>
+                @if (homePage != null)
+                    {
+                    <p>
+                        Go to the <a href="@homePage.Url" title="@homePage.Name">Homepage Page </a> and select some products to add to your basket.
+                    </p>
+                    }
+            </div>
+        </div>
+        }
+}

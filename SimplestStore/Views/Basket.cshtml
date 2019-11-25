@@ -1,0 +1,28 @@
+﻿@inherits Umbraco.Web.Mvc.UmbracoTemplatePage
+@using umbraco.MacroEngines;
+
+@section headerCss{
+}
+
+@{
+    Layout = "Master.cshtml";
+    var pageHeading = Model.Content.Name;
+    if (Model.Content.HasProperty("pageHeading") && Model.Content.HasValue("pageHeading"))
+        {
+        pageHeading = Model.Content.GetPropertyValue("pageHeading").ToString();
+        }
+    <div class="container pageIntro">
+        <div class="row">
+            <h1>
+                @pageHeading
+            </h1>
+            @Html.Raw(Model.Content.GetPropertyValue("pageText"))
+        </div>
+        <div class="row">
+            @Html.Partial("BasketPage-RenderBasketItems")
+        </div>
+    </div>
+}
+
+@section footerScripts{
+}

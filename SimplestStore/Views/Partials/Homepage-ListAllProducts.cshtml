@@ -1,0 +1,129 @@
+﻿@using SimplestStore.App_Code
+@using SimplestStore.Controllers
+@using SimplestStore.Models
+@inherits UmbracoTemplatePage
+@{
+    var homePage = Model.Content.AncestorOrSelf(1);
+    var hasBasketPage = homePage.Descendants("Basket").Any();
+    var currentBasket = new basketItem();
+    if (homePage != null && homePage.Children.Any() && hasBasketPage)
+        {
+        var basketPage = homePage.Descendants("Basket").First();
+        var productList = homePage.Descendants("Product").Where("Visible").ToList();
+        <h2>
+            All products
+        </h2>
+
+        // if we have just added a product or come from the checkout page, then display the results here
+        if (TempData["success"] != null)
+            {
+            <div class="row">
+                <div role="alert" class="alert alert-success fade in col-sm-12">
+                    <p>
+                        <strong>
+                            @TempData["success"]
+                        </strong>
+                        @if (basketPage != null)
+                            {
+                            <br />
+                            <text>Now go to the </text>
+                            <a href="@basketPage.Url" title="@basketPage.Name"> Basket Page </a>
+                            <text> and pay for your products.!!!</text>
+                            }
+                    </p>
+                </div>
+            </div>
+            }
+        else if (TempData["failure"] != null)
+            {
+            <div class="row">
+                <div role="alert" class="alert alert-danger fade in col-sm-12">
+                    <strong>
+                        @TempData["failure"]
+                    </strong>
+                </div>
+            </div>
+            }
+        else if (TempData["checkoutSuccess"] != null)
+            {
+            <div class="row">
+                <div role="alert" class="alert alert-success fade in col-sm-12">
+                    <strong>
+                        You have successfully ordered and paid for your products, we will send you an email once your order is on the way....
+                    </strong>
+                </div>
+            </div>
+            }
+
+        // list all available products
+        foreach (var productRow in productList.InGroupsOf(4))
+            {
+            <div class="row">
+                @foreach (var product in productRow)
+                    {
+                    var mediaUrl = "/images/ProductPlaceholder.png";
+                    if (product.HasProperty("productImage") && product.HasValue("productImage"))
+                        {
+                        var mediaItem = Umbraco.TypedMedia(product.GetPropertyValue("productImage"));
+                        mediaUrl = mediaItem.Url();
+                        }
+                    var productHeading = product.Name;
+                    <div class="col-sm-6 col-md-3">
+                        <div class="thumbnail">
+                            <a href="@product.Url" title="View @productHeading page">
+                                <img src="@mediaUrl" alt="@product.Name image" class="img-thumbnail" />
+                            </a>
+                            <div class="caption">
+                                <a href="@product.Url" title="View @productHeading page">
+                                    <h3>@productHeading</h3>
+                                </a>
+                                @if (product.HasProperty("pageText") && product.HasValue("pageText"))
+                                    {
+                                    var pageText = product.GetPropertyValue("pageText").ToString();
+                                    <p>
+                                        @siteHelpers.LimitWordsInText(pageText, 10) ...
+                                    </p>
+                                    }
+                                @if (product.HasProperty("productPrice") && product.HasValue("productPrice"))
+                                    {
+                                    using (Html.BeginUmbracoForm<BasketSurfaceController>("SiteWideAddToBasket", null, new { @class = "form", role = "form" }))
+                                    {
+                                        var priceMessage = "";
+                                        var productPrice = Convert.ToDecimal(product.GetPropertyValue("productPrice"));
+                                        if (product.HasProperty("priceExtras") && product.HasValue("priceExtras"))
+                                        {
+                                            var priceExtrasIds = product.GetPropertyValue("priceExtras").ToString();
+                                            priceMessage = currentBasket.GetCart().DiscountMessage(product, priceExtrasIds, null, out productPrice);
+                                        }
+                                        <input type="hidden" id="productPageId" name="productPageId" value="@product.Id"/>
+                                        <input type="hidden" id="productPrice" name="productPrice" value="@productPrice" />
+                                    if (!string.IsNullOrEmpty(priceMessage))
+                                        {
+                                            <div class="form-group">
+                                                <div role="alert" class="alert alert-warning">
+                                                    <strong>
+                                                        @priceMessage
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                        }
+                                        <div class="form-group">
+                                                <div class="input-group">
+                                                    <div class="input-group-addon">Price</div>
+                                                    <input class="form-control" type="text" placeholder="£00.00" disabled value="@productPrice.ToString("c")" />
+                                                </div>
+                                            </div>
+                                            <div class="form-group text-right">
+                                                <button id="addToBasket" type="submit" class="btn btn-primary">Add to Basket</button>
+                                            </div>
+                                            }
+                                            }
+                                        </div>
+                        </div>
+                    </div>
+                    }
+            </div>
+            <hr />
+            }
+        }
+}

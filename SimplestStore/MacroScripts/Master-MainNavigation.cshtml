@@ -1,0 +1,78 @@
+@inherits umbraco.MacroEngines.DynamicNodeContext
+@using Umbraco.Web;
+@using SimplestStore.Models;
+@{
+    var umbracoHelper = new Umbraco.Web.UmbracoHelper(UmbracoContext.Current);
+    var homePage = Model.AncestorOrSelf(1);
+    var hasBasketPage = homePage.Descendants("Basket").Any();
+
+    if (homePage != null && homePage.Id > 0)
+        {
+        <nav class="navbar navbar-default navbar-static-top" role="navigation">
+            <div class="container">
+                <div class="navbar-header col-sm-12">
+                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="/">@homePage.Name</a>
+                </div>
+                <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                    <ul class="nav nav-pills nav-justified">
+                        <li class="@(homePage.Id == Model.Id ? "active" : null)">
+                            <a href="@homePage.Url" title="@homePage.Name">@homePage.Name</a>
+                        </li>
+                        @foreach (var page in homePage.Children.Where("Visible"))
+                            {
+                            var isHidden = page.hideFromMenu.ToString();
+                            if (isHidden == "False")
+                                {
+                                if (hasBasketPage)
+                                    {
+                                    var basketPage = homePage.Descendants("Basket").First();
+                                    if (page.Id == basketPage.Id)
+                                        {
+                                        Cart basketCart = (Cart)Session["Cart"];
+                                        <li class="@(page.Id == Model.Id ? "active" : null)">
+                                            <a href="@page.Url" title="@page.Name">
+                                                @if (basketCart != null)
+                                                    {
+                                                    var basketItems = basketCart.Lines.Count();
+                                                    @page.Name
+                                                    <text>(</text>@basketItems<text>)</text>
+                                                    }
+                                                else
+                                                    {
+                                                    @page.Name
+                                                    }
+                                            </a>
+                                        </li>
+                                        }
+                                    else
+                                        {
+                                        <li class="@(page.Id == Model.Id ? " active" :null)">
+                                            <a href="@page.Url" title="@page.Name">
+                                                @page.Name
+                                            </a>
+                                        </li>
+                                        }
+                                    }
+                                else
+                                    {
+                                    <li class="@(page.Id == Model.Id ? " active" :null)">
+                                        <a href="@page.Url" title="@page.Name">
+                                            @page.Name
+                                        </a>
+                                    </li>
+                                    }
+                                }
+                            }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        }
+}
+

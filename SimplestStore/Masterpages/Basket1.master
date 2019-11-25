@@ -1,0 +1,21 @@
+﻿<%@ Master Language="C#" MasterPageFile="~/masterpages/Master1.master" AutoEventWireup="true" %>
+
+<asp:content ContentPlaceHolderId="headerCss" runat="server">
+</asp:content>
+
+<asp:content ContentPlaceHolderId="pageBody" runat="server">
+
+    <div class="container pageIntro">
+        <div class="row">
+            <umbraco:Item Field="pageHeading" useIfEmpty="pageName" insertTextBefore="&lt;h1&gt;" insertTextAfter="&lt;/h1&gt;" runat="server" />
+            <umbraco:Item Field="pageText" runat="server" />
+        </div>
+        <div class="row">
+            <umbraco:Macro Alias="BasketPage-RenderBasketItems" runat="server"></umbraco:Macro>
+        </div>
+    </div>
+
+</asp:content>
+
+<asp:content ContentPlaceHolderId="footerScripts" runat="server">
+</asp:content>
